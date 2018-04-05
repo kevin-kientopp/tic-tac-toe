@@ -1,3 +1,3 @@
 # tic-tac-toe
 
-Tic-tac-toe implemented HTML5 canvas.
+Tic-tac-toe implemented in HTML5 canvas.
