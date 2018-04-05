@@ -4,6 +4,7 @@ const oImg = new Image();
 oImg.src = 'o.png';
 let canvas;
 let context;
+let ps;
 
 const startGame = () => {
 
@@ -11,6 +12,8 @@ const startGame = () => {
   document.getElementById('replay').style = 'display: none';
   canvas = document.getElementById('canvas');
   context = canvas.getContext('2d');
+
+  ps = new PubSub();
 
   const game = new Game();
   game.refresh();
@@ -30,6 +33,9 @@ class Game {
     this.turn = 0;
     this.board = new Board();
     this.players = ['x', 'o'];
+    ps.subscribe('turnOver', () => {
+      this.turn++;
+    });
   }
 
   refresh() {
@@ -39,9 +45,8 @@ class Game {
   doTurn(e) {
     this.board.spaces.forEach(row => {
       row.forEach(space => {
-        if (space.clicked(e) && !space.value) {
-          space.value = this.players[this.turn % 2];
-          this.turn++;
+        if (space.clicked(e)) {
+          ps.publish('clicked', { space: space, player: this.players[this.turn % 2] });
         }
       });
     });
@@ -89,6 +94,24 @@ class Space {
   }
 }
 
+class PubSub {
+  constructor() {
+    this.subs = {};
+  }
+
+  subscribe(channel, sub) {
+    this.subs[channel] = this.subs[channel] || [];
+    this.subs[channel].push(sub);
+  }
+
+  publish(channel) {
+    const args = [].slice.call(arguments, 1);
+    this.subs[channel].forEach(sub => {
+      sub.apply(void 0, args);
+    });
+  }
+}
+
 class Board {
   constructor() {
     this.spaceSize = 100;
@@ -101,6 +124,12 @@ class Board {
       [ new Space(this.startX, this.startY + this.spaceSize + this.lineThickness), new Space(this.startX + this.spaceSize + this.lineThickness, this.startY + this.spaceSize + this.lineThickness), new Space(this.startX + this.spaceSize * 2 + this.lineThickness * 2, this.startY + this.spaceSize + this.lineThickness) ],
       [ new Space(this.startX, this.startY + this.spaceSize * 2 + this.lineThickness * 2), new Space(this.startX + this.spaceSize + this.lineThickness, this.startY + this.spaceSize * 2 + this.lineThickness * 2), new Space(this.startX + this.spaceSize * 2 + this.lineThickness * 2, this.startY + this.spaceSize * 2 + this.lineThickness * 2) ],
     ];
+    this.spaces.forEach(row => row.forEach(space => ps.subscribe('clicked', e => {
+      if (e.space === space && !space.value) {
+        space.value = e.player;
+        ps.publish('turnOver');
+      }
+    })));
   }
 
   draw() {
